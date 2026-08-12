@@ -6,7 +6,6 @@ const BOT_NAME = 'Stealbot'
 const VERSION = '1.21.4'
 
 let bot
-let actionTimer
 
 function startBot() {
   console.log('Stealbot server se connect ho raha hai...')
@@ -19,78 +18,35 @@ function startBot() {
   })
 
   bot.once('spawn', () => {
-    console.log('Stealbot server me aa gaya!')
+    console.log('Stealbot server me aa gaya! ✅')
+  })
 
-    startPlayerActions()
+  // Bot ko server kick kare to exact reason dikhayega
+  bot.on('kicked', (reason) => {
+    console.log('==============================')
+    console.log('BOT KICK HUA!')
+    console.log('Kick reason:')
+    console.log(reason)
+    console.log('==============================')
   })
 
   bot.on('error', (err) => {
     console.log('Error:', err.message)
   })
 
-  bot.on('end', () => {
-    stopPlayerActions()
-
+  // Disconnect hone ka reason dikhayega
+  bot.on('end', (reason) => {
+    console.log('==============================')
     console.log('Bot disconnect ho gaya.')
+    console.log('Disconnect reason:')
+    console.log(reason)
     console.log('10 seconds baad dobara connect hoga...')
+    console.log('==============================')
 
     setTimeout(() => {
       startBot()
     }, 10000)
   })
-}
-
-function startPlayerActions() {
-  stopPlayerActions()
-
-  actionTimer = setInterval(() => {
-    if (!bot || !bot.entity) return
-
-    bot.setControlState('forward', true)
-
-    setTimeout(() => {
-      if (!bot || !bot.entity) return
-      bot.setControlState('forward', false)
-    }, 800 + Math.floor(Math.random() * 1800))
-
-    if (Math.random() < 0.65) {
-      setTimeout(() => {
-        if (!bot || !bot.entity) return
-
-        bot.setControlState('jump', true)
-
-        setTimeout(() => {
-          if (bot) bot.setControlState('jump', false)
-        }, 250)
-      }, 300)
-    }
-
-    const direction = Math.random() < 0.5 ? 'left' : 'right'
-
-    if (Math.random() < 0.5) {
-      bot.setControlState(direction, true)
-
-      setTimeout(() => {
-        if (bot) bot.setControlState(direction, false)
-      }, 500 + Math.floor(Math.random() * 900))
-    }
-
-  }, 4000 + Math.floor(Math.random() * 5000))
-}
-
-function stopPlayerActions() {
-  if (actionTimer) {
-    clearInterval(actionTimer)
-    actionTimer = null
-  }
-
-  if (bot) {
-    bot.setControlState('forward', false)
-    bot.setControlState('back', false)
-    bot.setControlState('left', false)
-    bot.setControlState('right', false)
-    bot.setControlState('jump', false)
-  }
 }
 
 startBot()
