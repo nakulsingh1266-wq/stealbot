@@ -20,9 +20,6 @@ function startBot() {
   bot.once('spawn', () => {
   console.log('Stealbot server me aa gaya!')
 
-  setTimeout(() => {
-    bot.chat('/login stealbotpro0071')
-  }, 3000)
 })
 
   bot.on('error', (err) => {
