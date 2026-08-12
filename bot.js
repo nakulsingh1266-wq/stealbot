@@ -1,20 +1,38 @@
 const mineflayer = require('mineflayer')
 
-const bot = mineflayer.createBot({
-  host: 'StealMCs2.aternos.me',
-  port: 31949,
-  username: 'Stealbot',
-  version: '1.21.4'
-})
+const HOST = 'StealMCs2.aternos.me'
+const PORT = 31949
+const BOT_NAME = 'Stealbot'
+const VERSION = '1.21.4'
 
-bot.on('spawn', () => {
-  console.log('Bot server me aa gaya!')
-})
+let bot
 
-bot.on('error', (err) => {
-  console.log('Error:', err.message)
-})
+function startBot() {
+  console.log('Stealbot server se connect ho raha hai...')
 
-bot.on('end', () => {
-  console.log('Bot disconnect ho gaya.')
-})
+  bot = mineflayer.createBot({
+    host: HOST,
+    port: PORT,
+    username: BOT_NAME,
+    version: VERSION
+  })
+
+  bot.once('spawn', () => {
+    console.log('Stealbot server me aa gaya! ✅')
+  })
+
+  bot.on('error', (err) => {
+    console.log('Error:', err.message)
+  })
+
+  bot.on('end', () => {
+    console.log('Bot disconnect ho gaya. 🔄')
+    console.log('10 seconds baad dobara connect hoga...')
+
+    setTimeout(() => {
+      startBot()
+    }, 10000)
+  })
+}
+
+startBot()
