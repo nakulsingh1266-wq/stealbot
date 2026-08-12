@@ -1,0 +1,23 @@
+name: StealBot
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Code डाउनलोड करो
+        uses: actions/checkout@v4
+
+      - name: Node.js सेटअप करो
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Dependencies इंस्टॉल करो
+        run: npm install
+
+      - name: Bot चलाओ
+        run: npm start
