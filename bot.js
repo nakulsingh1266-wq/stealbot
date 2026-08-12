@@ -1,9 +1,9 @@
 const mineflayer = require('mineflayer')
 
 const bot = mineflayer.createBot({
-  host: 'YOUR_SERVER_IP',
-  port: 25565,
-  username: 'YOUR_BOT_NAME',
+  host: 'StealMCs2.aternos.me',
+  port: 31949,
+  username: 'Stealbot',
   version: '1.21.4'
 })
 
