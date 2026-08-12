@@ -4,8 +4,10 @@ const HOST = 'StealMCs2.aternos.me'
 const PORT = 31949
 const BOT_NAME = 'Stealbot'
 const VERSION = '1.21.4'
+const PASSWORD = 'Password'
 
 let bot
+let actionTimer
 
 function startBot() {
   console.log('Stealbot server se connect ho raha hai...')
@@ -18,15 +20,34 @@ function startBot() {
   })
 
   bot.once('spawn', () => {
-  console.log('Stealbot server me aa gaya!')
+    console.log('Stealbot server me aa gaya! ✅')
 
-})
+    // RLogin register
+    setTimeout(() => {
+      bot.chat(`/register ${PASSWORD} ${PASSWORD}`)
+    }, 1500)
+
+    // RLogin login
+    setTimeout(() => {
+      bot.chat(`/login ${PASSWORD}`)
+    }, 3000)
+
+    startPlayerActions()
+  })
+
+  // Chat messages console me dikhayega
+  bot.on('chat', (username, message) => {
+    if (username === bot.username) return
+    console.log(`<${username}> ${message}`)
+  })
 
   bot.on('error', (err) => {
     console.log('Error:', err.message)
   })
 
   bot.on('end', () => {
+    stopPlayerActions()
+
     console.log('Bot disconnect ho gaya. 🔄')
     console.log('10 seconds baad dobara connect hoga...')
 
@@ -34,6 +55,63 @@ function startBot() {
       startBot()
     }, 10000)
   })
+}
+
+// Bot ko player ki tarah move karna
+function startPlayerActions() {
+  stopPlayerActions()
+
+  actionTimer = setInterval(() => {
+    if (!bot || !bot.entity) return
+
+    // Aage chalega
+    bot.setControlState('forward', true)
+
+    setTimeout(() => {
+      if (!bot || !bot.entity) return
+      bot.setControlState('forward', false)
+    }, 800 + Math.floor(Math.random() * 1800))
+
+    // Kabhi-kabhi jump
+    if (Math.random() < 0.65) {
+      setTimeout(() => {
+        if (!bot || !bot.entity) return
+
+        bot.setControlState('jump', true)
+
+        setTimeout(() => {
+          if (bot) bot.setControlState('jump', false)
+        }, 250)
+      }, 300)
+    }
+
+    // Kabhi left/right move
+    const direction = Math.random() < 0.5 ? 'left' : 'right'
+
+    if (Math.random() < 0.5) {
+      bot.setControlState(direction, true)
+
+      setTimeout(() => {
+        if (bot) bot.setControlState(direction, false)
+      }, 500 + Math.floor(Math.random() * 900))
+    }
+
+  }, 4000 + Math.floor(Math.random() * 5000))
+}
+
+function stopPlayerActions() {
+  if (actionTimer) {
+    clearInterval(actionTimer)
+    actionTimer = null
+  }
+
+  if (bot) {
+    bot.setControlState('forward', false)
+    bot.setControlState('back', false)
+    bot.setControlState('left', false)
+    bot.setControlState('right', false)
+    bot.setControlState('jump', false)
+  }
 }
 
 startBot()
