@@ -4,7 +4,6 @@ const HOST = 'StealMCs2.aternos.me'
 const PORT = 31949
 const BOT_NAME = 'Stealbot'
 const VERSION = '1.21.4'
-const PASSWORD = 'Password'
 
 let bot
 let actionTimer
@@ -20,25 +19,9 @@ function startBot() {
   })
 
   bot.once('spawn', () => {
-    console.log('Stealbot server me aa gaya! ✅')
-
-    // RLogin register
-    setTimeout(() => {
-      bot.chat(`/register ${PASSWORD} ${PASSWORD}`)
-    }, 1500)
-
-    // RLogin login
-    setTimeout(() => {
-      bot.chat(`/login ${PASSWORD}`)
-    }, 3000)
+    console.log('Stealbot server me aa gaya!')
 
     startPlayerActions()
-  })
-
-  // Chat messages console me dikhayega
-  bot.on('chat', (username, message) => {
-    if (username === bot.username) return
-    console.log(`<${username}> ${message}`)
   })
 
   bot.on('error', (err) => {
@@ -48,7 +31,7 @@ function startBot() {
   bot.on('end', () => {
     stopPlayerActions()
 
-    console.log('Bot disconnect ho gaya. 🔄')
+    console.log('Bot disconnect ho gaya.')
     console.log('10 seconds baad dobara connect hoga...')
 
     setTimeout(() => {
@@ -57,14 +40,12 @@ function startBot() {
   })
 }
 
-// Bot ko player ki tarah move karna
 function startPlayerActions() {
   stopPlayerActions()
 
   actionTimer = setInterval(() => {
     if (!bot || !bot.entity) return
 
-    // Aage chalega
     bot.setControlState('forward', true)
 
     setTimeout(() => {
@@ -72,7 +53,6 @@ function startPlayerActions() {
       bot.setControlState('forward', false)
     }, 800 + Math.floor(Math.random() * 1800))
 
-    // Kabhi-kabhi jump
     if (Math.random() < 0.65) {
       setTimeout(() => {
         if (!bot || !bot.entity) return
@@ -85,7 +65,6 @@ function startPlayerActions() {
       }, 300)
     }
 
-    // Kabhi left/right move
     const direction = Math.random() < 0.5 ? 'left' : 'right'
 
     if (Math.random() < 0.5) {
