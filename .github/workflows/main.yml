@@ -1,23 +1,31 @@
-name: StealBot
+name: run-bot
 
 on:
   workflow_dispatch:
 
+  schedule:
+    - cron: '*/5 * * * *'
+
+concurrency:
+  group: stealbot
+  cancel-in-progress: true
+
 jobs:
-  run-bot:
+  run:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Code डाउनलोड करो
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Node.js सेटअप करो
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22'
+          cache: 'npm'
 
-      - name: Dependencies इंस्टॉल करो
+      - name: Install dependencies
         run: npm install
 
-      - name: Bot चलाओ
+      - name: Start bot
         run: npm start
