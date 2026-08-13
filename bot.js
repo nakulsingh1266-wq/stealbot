@@ -1,630 +1,628 @@
 const mineflayer = require('mineflayer')
 
+/*
+================================
+STEALBOT - MINEFLAYER ONLY
+Minecraft: 1.21.4
+================================
+
+Required:
+npm install mineflayer
+
+Extra packages की जरूरत नहीं:
+- mineflayer-pvp ❌
+- mineflayer-pathfinder ❌
+- minecraft-data ❌
+*/
+
 const HOST = 'StealMCs2.aternos.me'
 const PORT = 31949
-const BOT_NAME = 'Stealbot'
 const VERSION = '1.21.4'
 
+const BOT_NAME = 'Stealbot'
 const PASSWORD = 'Stealbot123'
 
-let bot
-let reconnectTimer
+const RECONNECT_DELAY = 10000
+
+let bot = null
+let reconnectTimer = null
+let combatTimer = null
+let mobTimer = null
+
+let currentTarget = null
+let spawned = false
+
+
+// =================================
+// START BOT
+// =================================
 
 function startBot() {
-  if (reconnectTimer) clearTimeout(reconnectTimer)
 
-  console.log('Stealbot server se connect ho raha hai...')
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
+
+  console.log('==============================')
+  console.log('Stealbot start ho raha hai...')
+  console.log('Server:', HOST)
+  console.log('Port:', PORT)
+  console.log('Version:', VERSION)
+  console.log('==============================')
 
   bot = mineflayer.createBot({
+
     host: HOST,
     port: PORT,
     username: BOT_NAME,
     version: VERSION,
     auth: 'offline'
+
   })
+
+
+  // =================================
+  // SPAWN
+  // =================================
 
   bot.once('spawn', () => {
-    console.log('Stealbot server me aa gaya!')
 
-    // Register
+    spawned = true
+
+    console.log('Stealbot server me join ho gaya!')
+
+    // REGISTER
     setTimeout(() => {
-      bot.chat(`/register ${PASSWORD} ${PASSWORD}`)
+
+      if (!bot || !spawned) return
+
+      bot.chat(
+        `/register ${PASSWORD} ${PASSWORD}`
+      )
+
     }, 1500)
 
-    // Login
+
+    // LOGIN
     setTimeout(() => {
-      bot.chat(`/login ${PASSWORD}`)
+
+      if (!bot || !spawned) return
+
+      bot.chat(
+        `/login ${PASSWORD}`
+      )
+
     }, 3500)
+
+
+    startMobSystem()
+
   })
 
-  // =========================
+
+  // =================================
   // CHAT SYSTEM
-  // =========================
+  // =================================
 
   bot.on('chat', (username, message) => {
+
+    if (!bot) return
     if (username === bot.username) return
 
-    const msg = message.toLowerCase().trim()
+    const msg =
+      String(message)
+        .toLowerCase()
+        .trim()
 
-    if (msg === 'hi' || msg === 'hello' || msg === 'hey') {
-      bot.chat(`Hello ${username}!`)
+    console.log(
+      `[CHAT] ${username}: ${message}`
+    )
+
+
+    // HI
+    if (
+      msg === 'hi' ||
+      msg === 'hello' ||
+      msg === 'hey' ||
+      msg === 'hii'
+    ) {
+
+      bot.chat(
+        `Hello ${username}!`
+      )
+
       return
     }
 
-    if (msg === 'pvp' ||
-        msg === 'pvp aaja' ||
-        msg === 'fight') {
 
-      const player = bot.players[username]
+    // BOT KAUN HAI
+    if (
+      msg.includes('kaun ho') ||
+      msg.includes('kon ho') ||
+      msg.includes('who are you')
+    ) {
 
-      if (player && player.entity) {
-        bot.chat(`Aaja ${username}, PvP!`)
-        attackEntity(player.entity)
-      } else {
-        bot.chat(`${username}, tum mujhe dikh nahi rahe ho.`)
+      bot.chat(
+        'Main Stealbot hoon!'
+      )
+
+      return
+    }
+
+
+    // HELP
+    if (
+      msg === 'help' ||
+      msg === 'bot help'
+    ) {
+
+      bot.chat(
+        'Commands: pvp, pvp aaja, pvp stop'
+      )
+
+      return
+    }
+
+
+    // PVP
+    if (
+      msg === 'pvp' ||
+      msg === 'pvp aaja' ||
+      msg === 'pvp aja' ||
+      msg === 'fight'
+    ) {
+
+      const player =
+        getPlayerEntity(username)
+
+      if (!player) {
+
+        bot.chat(
+          `${username}, tum mujhe dikh nahi rahe ho.`
+        )
+
+        return
       }
 
+      bot.chat(
+        `Aaja ${username}, PvP!`
+      )
+
+      attackTarget(player)
+
       return
     }
 
-    if (msg === 'stop' || msg === 'pvp stop') {
-      stopAttack()
-      bot.chat('Theek hai, PvP stop.')
+
+    // STOP PVP
+    if (
+      msg === 'pvp stop' ||
+      msg === 'stop pvp' ||
+      msg === 'stop'
+    ) {
+
+      stopCombat()
+
+      bot.chat(
+        'Theek hai, PvP stop.'
+      )
+
       return
     }
 
-    if (msg.includes('kaun ho') ||
-        msg.includes('who are you')) {
 
-      bot.chat('Main Stealbot hoon!')
+    // BOT KYA KAR RAHA HAI
+    if (
+      msg.includes('kya kar rahe') ||
+      msg.includes('kya kr rahe') ||
+      msg.includes('what are you doing')
+    ) {
+
+      bot.chat(
+        'Main server me players aur mobs dekh raha hoon.'
+      )
+
       return
     }
 
-    if (msg.includes('kya kar rahe') ||
-        msg.includes('what are you doing')) {
 
-      bot.chat('Main server me players aur mobs dekh raha hoon.')
+    // HOW ARE YOU
+    if (
+      msg.includes('kaise ho') ||
+      msg.includes('how are you')
+    ) {
+
+      bot.chat(
+        'Main bilkul theek hoon!'
+      )
+
       return
     }
 
-    if (msg.includes('help')) {
-      bot.chat('Commands: pvp, pvp aaja, pvp stop')
+
+    // BOT NAME
+    if (
+      msg.includes('naam kya') ||
+      msg.includes('name kya') ||
+      msg.includes('your name')
+    ) {
+
+      bot.chat(
+        'Mera naam Stealbot hai!'
+      )
+
       return
     }
+
   })
 
-  // =========================
-  // PLAYER ATTACK DETECTION
-  // =========================
+
+  // =================================
+  // PLAYER ATTACKS BOT
+  // =================================
 
   bot.on('entityHurt', (entity) => {
+
+    if (!bot) return
     if (!bot.entity) return
-    if (entity !== bot.entity) return
 
-    const attacker = nearestPlayer(8)
-
-    if (attacker) {
-      bot.chat(`Oye ${attacker.username}, PvP aaja!`)
-      attackEntity(attacker)
+    if (entity !== bot.entity) {
+      return
     }
+
+    const attacker =
+      findNearestPlayer(8)
+
+    if (!attacker) {
+      return
+    }
+
+    const username =
+      attacker.username || 'player'
+
+    console.log(
+      `${username} ne Stealbot ko hit kiya!`
+    )
+
+    bot.chat(
+      `Oye ${username}, PvP aaja!`
+    )
+
+    attackTarget(attacker)
+
   })
 
-  // =========================
-  // AUTO MOB KILL
-  // =========================
 
-  setInterval(() => {
-    if (!bot || !bot.entity) return
-
-    // Player ko mobs se priority
-    const player = nearestPlayer(6)
-
-    if (player) return
-
-    const mob = nearestHostileMob(10)
-
-    if (mob) {
-      attackEntity(mob)
-    }
-  }, 3000)
-
-  // =========================
-  // DEATH / RESPAWN
-  // =========================
+  // =================================
+  // DEATH
+  // =================================
 
   bot.on('death', () => {
-    console.log('Stealbot mar gaya...')
-    stopAttack()
+
+    console.log(
+      'Stealbot mar gaya.'
+    )
+
+    stopCombat()
+
   })
+
+
+  // =================================
+  // RESPAWN
+  // =================================
 
   bot.on('respawn', () => {
-    console.log('Stealbot respawn ho gaya!')
+
+    console.log(
+      'Stealbot respawn ho gaya!'
+    )
+
   })
 
-  // =========================
+
+  // =================================
   // KICK
-  // =========================
+  // =================================
 
   bot.on('kicked', (reason) => {
-    console.log('==============================')
-    console.log('BOT KICK HUA!')
-    console.log('Kick reason:')
+
+    console.log(
+      '=============================='
+    )
+
+    console.log(
+      'BOT KICK HUA!'
+    )
+
+    console.log(
+      'Reason:'
+    )
+
     console.log(reason)
-    console.log('==============================')
+
+    console.log(
+      '=============================='
+    )
+
   })
 
-  // =========================
+
+  // =================================
   // ERROR
-  // =========================
+  // =================================
 
   bot.on('error', (err) => {
-    console.log('Error:', err.message)
+
+    console.log(
+      'Mineflayer error:',
+      err.message
+    )
+
   })
 
-  // =========================
-  // AUTO RECONNECT
-  // =========================
+
+  // =================================
+  // DISCONNECT
+  // =================================
 
   bot.on('end', (reason) => {
-    console.log('==============================')
-    console.log('Bot disconnect ho gaya.')
-    console.log('Reason:', reason)
-    console.log('10 seconds baad reconnect hoga...')
-    console.log('==============================')
 
-    reconnectTimer = setTimeout(() => {
-      startBot()
-    }, 10000)
+    spawned = false
+
+    stopCombat()
+    stopMobSystem()
+
+    console.log(
+      '=============================='
+    )
+
+    console.log(
+      'Bot disconnect ho gaya.'
+    )
+
+    console.log(
+      'Reason:',
+      reason
+    )
+
+    console.log(
+      '10 seconds baad reconnect hoga...'
+    )
+
+    console.log(
+      '=============================='
+    )
+
+
+    if (!reconnectTimer) {
+
+      reconnectTimer =
+        setTimeout(() => {
+
+          reconnectTimer = null
+
+          startBot()
+
+        }, RECONNECT_DELAY)
+
+    }
+
   })
+
 }
 
 
-// =======================================
-// SIMPLE MINEFLAYER ATTACK SYSTEM
-// =======================================
+// =================================
+// GET PLAYER ENTITY
+// =================================
 
-function attackEntity(target) {
+function getPlayerEntity(username) {
+
+  if (!bot) return null
+  if (!bot.players) return null
+
+  const player =
+    bot.players[username]
+
+  if (!player) return null
+  if (!player.entity) return null
+
+  return player.entity
+}
+
+
+// =================================
+// ATTACK TARGET
+// =================================
+
+function attackTarget(target) {
 
   if (!bot) return
+  if (!bot.entity) return
+
   if (!target) return
   if (!target.position) return
 
-  let attacking = true
 
-  const attackLoop = setInterval(() => {
+  stopCombat()
 
-    if (!bot ||
-        !bot.entity ||
-        !target ||
-        !target.position ||
-        !attacking) {
+  currentTarget = target
 
-      clearInterval(attackLoop)
-      return
-    }
 
-    const distance =
-      bot.entity.position.distanceTo(target.position)
+  combatTimer =
+    setInterval(() => {
 
-    // Target door hai
-    if (distance > 4) {
+      if (!bot || !bot.entity) {
 
-      moveTowards(target)
+        stopCombat()
 
-    } else {
+        return
+      }
+
+
+      if (
+        !currentTarget ||
+        !currentTarget.position
+      ) {
+
+        stopCombat()
+
+        return
+      }
+
+
+      if (
+        currentTarget.isValid === false
+      ) {
+
+        stopCombat()
+
+        return
+      }
+
+
+      const distance =
+        bot.entity.position.distanceTo(
+          currentTarget.position
+        )
+
+
+      // TARGET DOOR HAI
+      if (distance > 4.2) {
+
+        moveTowardsTarget(
+          currentTarget
+        )
+
+        return
+      }
+
+
+      // TARGET PAAS HAI
+      clearMovement()
+
 
       try {
 
         bot.lookAt(
-          target.position.offset(0, 1, 0),
+          currentTarget.position.offset(
+            0,
+            1,
+            0
+          ),
           true
         )
 
-        bot.attack(target)
+        bot.attack(
+          currentTarget
+        )
 
       } catch (err) {
 
-        // Target disappear ho gaya
+        // Target disappear hone par ignore
+
       }
-    }
 
-    if (target.isValid === false) {
+    }, 450)
 
-      attacking = false
-      clearInterval(attackLoop)
-    }
 
-  }, 500)
-
-  // 20 seconds ke baad attack stop
+  // Maximum 20 seconds fight
   setTimeout(() => {
 
-    attacking = false
-    clearInterval(attackLoop)
+    if (
+      currentTarget === target
+    ) {
 
-    stopAttack()
+      stopCombat()
+
+    }
 
   }, 20000)
+
 }
 
 
-// =======================================
-// STOP MOVEMENT
-// =======================================
+// =================================
+// MOVE TOWARDS TARGET
+// =================================
 
-function stopAttack() {
-
-  if (!bot) return
-
-  try {
-
-    bot.clearControlStates()
-
-  } catch (err) {
-
-  }
-}
-
-
-// =======================================
-// TARGET KI TARAF MOVE
-// =======================================
-
-function moveTowards(target) {
+function moveTowardsTarget(target) {
 
   if (!bot) return
   if (!bot.entity) return
-  if (!target.position) return
 
-  const dx =
-    target.position.x -
-    bot.entity.position.x
-
-  const dz =
-    target.position.z -
-    bot.entity.position.z
-
-  // Left / Right
-  if (Math.abs(dx) > 0.5) {
-
-    bot.setControlState(
-      'left',
-      dx < 0
-    )
-
-    bot.setControlState(
-      'right',
-      dxconst mineflayer = require('mineflayer')
-
-const HOST = 'StealMCs2.aternos.me'
-const PORT = 31949
-const BOT_NAME = 'Stealbot'
-const VERSION = '1.21.4'
-
-const PASSWORD = 'Stealbot123'
-
-let bot
-let reconnectTimer
-
-function startBot() {
-  if (reconnectTimer) clearTimeout(reconnectTimer)
-
-  console.log('Stealbot server se connect ho raha hai...')
-
-  bot = mineflayer.createBot({
-    host: HOST,
-    port: PORT,
-    username: BOT_NAME,
-    version: VERSION,
-    auth: 'offline'
-  })
-
-  bot.once('spawn', () => {
-    console.log('Stealbot server me aa gaya!')
-
-    // Register
-    setTimeout(() => {
-      bot.chat(`/register ${PASSWORD} ${PASSWORD}`)
-    }, 1500)
-
-    // Login
-    setTimeout(() => {
-      bot.chat(`/login ${PASSWORD}`)
-    }, 3500)
-  })
-
-  // =========================
-  // CHAT SYSTEM
-  // =========================
-
-  bot.on('chat', (username, message) => {
-    if (username === bot.username) return
-
-    const msg = message.toLowerCase().trim()
-
-    if (msg === 'hi' || msg === 'hello' || msg === 'hey') {
-      bot.chat(`Hello ${username}!`)
-      return
-    }
-
-    if (msg === 'pvp' ||
-        msg === 'pvp aaja' ||
-        msg === 'fight') {
-
-      const player = bot.players[username]
-
-      if (player && player.entity) {
-        bot.chat(`Aaja ${username}, PvP!`)
-        attackEntity(player.entity)
-      } else {
-        bot.chat(`${username}, tum mujhe dikh nahi rahe ho.`)
-      }
-
-      return
-    }
-
-    if (msg === 'stop' || msg === 'pvp stop') {
-      stopAttack()
-      bot.chat('Theek hai, PvP stop.')
-      return
-    }
-
-    if (msg.includes('kaun ho') ||
-        msg.includes('who are you')) {
-
-      bot.chat('Main Stealbot hoon!')
-      return
-    }
-
-    if (msg.includes('kya kar rahe') ||
-        msg.includes('what are you doing')) {
-
-      bot.chat('Main server me players aur mobs dekh raha hoon.')
-      return
-    }
-
-    if (msg.includes('help')) {
-      bot.chat('Commands: pvp, pvp aaja, pvp stop')
-      return
-    }
-  })
-
-  // =========================
-  // PLAYER ATTACK DETECTION
-  // =========================
-
-  bot.on('entityHurt', (entity) => {
-    if (!bot.entity) return
-    if (entity !== bot.entity) return
-
-    const attacker = nearestPlayer(8)
-
-    if (attacker) {
-      bot.chat(`Oye ${attacker.username}, PvP aaja!`)
-      attackEntity(attacker)
-    }
-  })
-
-  // =========================
-  // AUTO MOB KILL
-  // =========================
-
-  setInterval(() => {
-    if (!bot || !bot.entity) return
-
-    // Player ko mobs se priority
-    const player = nearestPlayer(6)
-
-    if (player) return
-
-    const mob = nearestHostileMob(10)
-
-    if (mob) {
-      attackEntity(mob)
-    }
-  }, 3000)
-
-  // =========================
-  // DEATH / RESPAWN
-  // =========================
-
-  bot.on('death', () => {
-    console.log('Stealbot mar gaya...')
-    stopAttack()
-  })
-
-  bot.on('respawn', () => {
-    console.log('Stealbot respawn ho gaya!')
-  })
-
-  // =========================
-  // KICK
-  // =========================
-
-  bot.on('kicked', (reason) => {
-    console.log('==============================')
-    console.log('BOT KICK HUA!')
-    console.log('Kick reason:')
-    console.log(reason)
-    console.log('==============================')
-  })
-
-  // =========================
-  // ERROR
-  // =========================
-
-  bot.on('error', (err) => {
-    console.log('Error:', err.message)
-  })
-
-  // =========================
-  // AUTO RECONNECT
-  // =========================
-
-  bot.on('end', (reason) => {
-    console.log('==============================')
-    console.log('Bot disconnect ho gaya.')
-    console.log('Reason:', reason)
-    console.log('10 seconds baad reconnect hoga...')
-    console.log('==============================')
-
-    reconnectTimer = setTimeout(() => {
-      startBot()
-    }, 10000)
-  })
-}
-
-
-// =======================================
-// SIMPLE MINEFLAYER ATTACK SYSTEM
-// =======================================
-
-function attackEntity(target) {
-
-  if (!bot) return
   if (!target) return
   if (!target.position) return
 
-  let attacking = true
 
-  const attackLoop = setInterval(() => {
+  const botPos =
+    bot.entity.position
 
-    if (!bot ||
-        !bot.entity ||
-        !target ||
-        !target.position ||
-        !attacking) {
-
-      clearInterval(attackLoop)
-      return
-    }
-
-    const distance =
-      bot.entity.position.distanceTo(target.position)
-
-    // Target door hai
-    if (distance > 4) {
-
-      moveTowards(target)
-
-    } else {
-
-      try {
-
-        bot.lookAt(
-          target.position.offset(0, 1, 0),
-          true
-        )
-
-        bot.attack(target)
-
-      } catch (err) {
-
-        // Target disappear ho gaya
-      }
-    }
-
-    if (target.isValid === false) {
-
-      attacking = false
-      clearInterval(attackLoop)
-    }
-
-  }, 500)
-
-  // 20 seconds ke baad attack stop
-  setTimeout(() => {
-
-    attacking = false
-    clearInterval(attackLoop)
-
-    stopAttack()
-
-  }, 20000)
-}
+  const targetPos =
+    target.position
 
 
-// =======================================
-// STOP MOVEMENT
-// =======================================
+  const dx =
+    targetPos.x -
+    botPos.x
 
-function stopAttack() {
+  const dz =
+    targetPos.z -
+    botPos.z
 
-  if (!bot) return
+
+  const distanceXZ =
+    Math.sqrt(
+      (dx * dx) +
+      (dz * dz)
+    )
+
+
+  if (distanceXZ < 0.8) {
+
+    clearMovement()
+
+    return
+  }
+
+
+  // TARGET KI TARAF LOOK
+  const yaw =
+    Math.atan2(
+      -dx,
+      -dz
+    )
+
 
   try {
 
-    bot.clearControlStates()
-
-  } catch (err) {
-
-  }
-}
-
-
-// =======================================
-// TARGET KI TARAF MOVE
-// =======================================
-
-function moveTowards(target) {
-
-  if (!bot) return
-  if (!bot.entity) return
-  if (!target.position) return
-
-  const dx =
-    target.position.x -
-    bot.entity.position.x
-
-  const dz =
-    target.position.z -
-    bot.entity.position.z
-
-  // Left / Right
-  if (Math.abs(dx) > 0.5) {
-
-    bot.setControlState(
-      'left',
-      dx < 0
-    )
-
-    bot.setControlState(
-      'right',
-      dx > 0
-    )
-
-  } else {
-
-    bot.setControlState('left', false)
-    bot.setControlState('right', false)
-  }
-
-  // Forward
-  if (Math.abs(dz) > 0.5) {
-
-    bot.setControlState(
-      'forward',
+    bot.look(
+      yaw,
+      0,
       true
     )
 
-  } else {
+  } catch (err) {}
 
-    bot.setControlState(
-      'forward',
-      false
-    )
-  }
 
-  // Sprint
   bot.setControlState(
-    'sprint',
+    'forward',
     true
   )
 
-  // Jump
+
+  bot.setControlState(
+    'sprint',
+    distanceXZ > 2.5
+  )
+
+
+  // SIMPLE JUMP
   if (
-    target.position.y >
-    bot.entity.position.y + 0.8
+    targetPos.y >
+    botPos.y + 0.8
   ) {
 
     bot.setControlState(
@@ -638,62 +636,153 @@ function moveTowards(target) {
       'jump',
       false
     )
+
   }
+
 }
 
 
-// =======================================
-// NEAREST PLAYER
-// =======================================
+// =================================
+// STOP COMBAT
+// =================================
 
-function nearestPlayer(maxDistance) {
+function stopCombat() {
+
+  if (combatTimer) {
+
+    clearInterval(
+      combatTimer
+    )
+
+    combatTimer = null
+  }
+
+
+  currentTarget = null
+
+  clearMovement()
+
+}
+
+
+// =================================
+// CLEAR MOVEMENT
+// =================================
+
+function clearMovement() {
+
+  if (!bot) return
+
+
+  try {
+
+    bot.setControlState(
+      'forward',
+      false
+    )
+
+    bot.setControlState(
+      'back',
+      false
+    )
+
+    bot.setControlState(
+      'left',
+      false
+    )
+
+    bot.setControlState(
+      'right',
+      false
+    )
+
+    bot.setControlState(
+      'jump',
+      false
+    )
+
+    bot.setControlState(
+      'sprint',
+      false
+    )
+
+    bot.setControlState(
+      'sneak',
+      false
+    )
+
+  } catch (err) {}
+
+}
+
+
+// =================================
+// FIND NEAREST PLAYER
+// =================================
+
+function findNearestPlayer(maxDistance) {
 
   if (!bot) return null
   if (!bot.entity) return null
 
+
   let nearest = null
-  let distance = maxDistance
 
-  for (const username in bot.players) {
+  let nearestDistance =
+    maxDistance
 
-    if (username === bot.username)
+
+  for (
+    const username in bot.players
+  ) {
+
+    if (
+      username === bot.username
+    ) {
+
       continue
+    }
+
 
     const player =
       bot.players[username]
 
-    if (!player)
-      continue
 
-    if (!player.entity)
-      continue
+    if (!player) continue
+    if (!player.entity) continue
 
-    const d =
+
+    const distance =
       bot.entity.position.distanceTo(
         player.entity.position
       )
 
-    if (d < distance) {
 
-      distance = d
-      nearest = player.entity
+    if (
+      distance < nearestDistance
+    ) {
+
+      nearestDistance =
+        distance
+
+      nearest =
+        player.entity
+
     }
+
   }
+
 
   return nearest
 }
 
 
-// =======================================
-// NEAREST HOSTILE MOB
-// =======================================
+// =================================
+// HOSTILE MOBS
+// =================================
 
-function nearestHostileMob(maxDistance) {
-
-  if (!bot) return null
-  if (!bot.entity) return null
-
-  const hostile = [
+const HOSTILE_MOBS =
+  new Set([
 
     'zombie',
     'husk',
@@ -738,47 +827,156 @@ function nearestHostileMob(maxDistance) {
     'shulker',
 
     'warden'
-  ]
+
+  ])
+
+
+// =================================
+// FIND NEAREST MOB
+// =================================
+
+function findNearestHostileMob(
+  maxDistance
+) {
+
+  if (!bot) return null
+  if (!bot.entity) return null
+
 
   let nearest = null
-  let distance = maxDistance
 
-  for (const id in bot.entities) {
+  let nearestDistance =
+    maxDistance
+
+
+  for (
+    const id in bot.entities
+  ) {
 
     const entity =
       bot.entities[id]
 
-    if (!entity)
-      continue
 
-    if (!entity.name)
-      continue
+    if (!entity) continue
+    if (!entity.name) continue
+    if (!entity.position) continue
 
-    if (!hostile.includes(entity.name))
-      continue
 
-    if (!entity.position)
-      continue
+    if (
+      !HOSTILE_MOBS.has(
+        entity.name
+      )
+    ) {
 
-    const d =
+      continue
+    }
+
+
+    const distance =
       bot.entity.position.distanceTo(
         entity.position
       )
 
-    if (d < distance) {
 
-      distance = d
-      nearest = entity
+    if (
+      distance < nearestDistance
+    ) {
+
+      nearestDistance =
+        distance
+
+      nearest =
+        entity
+
     }
+
   }
+
 
   return nearest
 }
 
 
-// =======================================
+// =================================
+// AUTO MOB SYSTEM
+// =================================
+
+function startMobSystem() {
+
+  stopMobSystem()
+
+
+  mobTimer =
+    setInterval(() => {
+
+      if (
+        !bot ||
+        !bot.entity ||
+        !spawned
+      ) {
+
+        return
+      }
+
+
+      // PvP chal raha ho to mob attack nahi
+      if (currentTarget) {
+        return
+      }
+
+
+      // Player paas hai to automatic
+      // player attack nahi karega
+      const player =
+        findNearestPlayer(6)
+
+
+      if (player) {
+        return
+      }
+
+
+      const mob =
+        findNearestHostileMob(10)
+
+
+      if (mob) {
+
+        console.log(
+          `Nearby mob mila: ${mob.name}`
+        )
+
+        attackTarget(mob)
+
+      }
+
+    }, 3000)
+
+}
+
+
+// =================================
+// STOP MOB SYSTEM
+// =================================
+
+function stopMobSystem() {
+
+  if (mobTimer) {
+
+    clearInterval(
+      mobTimer
+    )
+
+    mobTimer = null
+
+  }
+
+}
+
+
+// =================================
 // ERROR PROTECTION
-// =======================================
+// =================================
 
 process.on(
   'uncaughtException',
@@ -788,8 +986,10 @@ process.on(
       'Uncaught error:',
       err.message
     )
+
   }
 )
+
 
 process.on(
   'unhandledRejection',
@@ -799,122 +999,13 @@ process.on(
       'Unhandled rejection:',
       err
     )
+
   }
 )
 
 
-// =======================================
-// START BOT
-// =======================================
+// =================================
+// START
+// =================================
 
-startBot()￼Enter > 0
-    )
-
-  } else {
-
-t.setControlState('left', false)
-    bot.setControlState('right', false)
-  }
-
-  // Forward
-  if (Math.abs(dz) > 0.5) {
-
-    bot.setControlState(
-      'forward',
-      true
-    )
-
-  } else {
-
-    bot.setControlState(
-      'forward',
-      false
-    )
-  }
-
-  // Sprint
-  bot.setControlState(
-    'sprint',
-    true
-  )
-
-  // Jump
-  if (
-    target.position.y >
-    bot.entity.position.y + 0.8
-  ) {
-
-    bot.setControlState(
-      'jump',
-      true
-    )
-
-  } else {
-
-    bot.setControlState(
-      'jump',
-      false
-    )
-  }
-}
-
-
-// =======================================
-// NEAREST PLAYER
-// =======================================
-
-function nearestPlayer(maxDistance) {
-
-  if (!bot) return null
-  if (!bot.entity) return null
-
-  let nearest = null
-  let distance = maxDistance
-
-  for (const username in bot.players) {
-
-    if (username === bot.username)
-      continue
-
-    const player =
-      bot.players[username]
-
-    if (!player)
-      continue
-
-    if (!player.entity)
-      continue
-
-    const d =
-      bot.entity.position.distanceTo(
-        player.entity.position
-      )
-
-    if (d < distance) {
-
-      distance = d
-      nearest = player.entity
-    }
-  }
-
-  return nearest
-}
-
-
-// =======================================
-// NEAREST HOSTILE MOB
-// =======================================
-
-function nearestHostileMob(maxDistance) {
-
-  if (!bot) return null
-  if (!bot.entity) return null
-
-  const hostile = [
-
-    'zombie',
-    'husk',
-    'drowned',
-
-    'skeleton',
-    'stray',
+startBot()
