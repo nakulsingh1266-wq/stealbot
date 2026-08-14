@@ -84,6 +84,7 @@ function startBot() {
       'Stealbot server me join ho gaya!'
     )
 
+
     // REGISTER
     setTimeout(() => {
 
@@ -124,7 +125,6 @@ function startBot() {
     )
 
 
-    // Owner ke commands
     if (username === OWNER) {
 
       ownerCommand(
@@ -135,7 +135,6 @@ function startBot() {
     }
 
 
-    // Normal players
     normalChat(
       username,
       String(message)
@@ -368,9 +367,7 @@ function ownerCommand(raw) {
       .trim()
 
 
-  // ====================================================
   // STOP
-  // ====================================================
 
   if (
     msg === 'stop' ||
@@ -390,9 +387,7 @@ function ownerCommand(raw) {
   }
 
 
-  // ====================================================
   // IDHAR AA
-  // ====================================================
 
   if (
     msg.includes('idhar aa') ||
@@ -408,9 +403,7 @@ function ownerCommand(raw) {
   }
 
 
-  // ====================================================
   // FOLLOW
-  // ====================================================
 
   if (
     msg.includes('mere peeche aa') ||
@@ -424,9 +417,7 @@ function ownerCommand(raw) {
   }
 
 
-  // ====================================================
   // JUMP
-  // ====================================================
 
   if (
     msg === 'jump' ||
@@ -444,9 +435,7 @@ function ownerCommand(raw) {
   }
 
 
-  // ====================================================
   // WALK
-  // ====================================================
 
   if (
     msg.includes('walk kar') ||
@@ -466,9 +455,7 @@ function ownerCommand(raw) {
   }
 
 
-  // ====================================================
   // PVP
-  // ====================================================
 
   if (
     msg.includes('pvp') ||
@@ -498,9 +485,7 @@ function ownerCommand(raw) {
   }
 
 
-  // ====================================================
   // BLOCK TOD
-  // ====================================================
 
   if (
     msg.includes('block tod') ||
@@ -515,9 +500,7 @@ function ownerCommand(raw) {
   }
 
 
-  // ====================================================
   // GRIND
-  // ====================================================
 
   if (
     msg.includes('grind kar') ||
@@ -531,9 +514,7 @@ function ownerCommand(raw) {
   }
 
 
-  // ====================================================
   // COMMAND
-  // ====================================================
 
   if (
     msg.startsWith('command ') ||
@@ -585,9 +566,7 @@ function ownerCommand(raw) {
   }
 
 
-  // ====================================================
-  // BOT STATUS
-  // ====================================================
+  // STATUS
 
   if (
     msg.includes('kya kar rahe') ||
@@ -602,9 +581,7 @@ function ownerCommand(raw) {
   }
 
 
-  // ====================================================
-  // SIMPLE UNDERSTANDING
-  // ====================================================
+  // MERE PAAS
 
   if (
     msg.includes('mere paas') ||
@@ -687,7 +664,6 @@ function followOwner() {
   }
 
 
-  // Pathfinder ke bina simple follow system.
   wanderTimer =
     setInterval(() => {
 
@@ -726,7 +702,6 @@ function followOwner() {
       }
 
 
-      // Kabhi-kabhi natural jump.
       if (
         distance > 5 &&
         Math.random() < 0.15
@@ -813,8 +788,6 @@ function moveToPosition(position) {
   )
 
 
-  // Agar target thoda upar hai,
-  // jump karne ki koshish.
   if (
     position.y >
     botPos.y + 0.7
@@ -924,9 +897,16 @@ function startWalk() {
 
 
     const target = {
-      x: pos.x + dx,
-      y: pos.y,
-      z: pos.z + dz
+
+      x:
+        pos.x + dx,
+
+      y:
+        pos.y,
+
+      z:
+        pos.z + dz
+
     }
 
 
@@ -1130,7 +1110,6 @@ function startPvP(target) {
 
   stopCombat()
 
-
   followingOwner = false
 
   currentTarget =
@@ -1246,7 +1225,6 @@ function startPvP(target) {
       )
 
 
-      // PvP movement variation.
       if (
         Math.random() < 0.12
       ) {
@@ -1304,10 +1282,11 @@ function startPvP(target) {
     )
 
 
-  // Maximum 30 seconds.
   setTimeout(() => {
 
-    if (currentTarget === target) {
+    if (
+      currentTarget === target
+    ) {
 
       stopCombat()
 
@@ -1349,7 +1328,6 @@ function stopCombat() {
 function stopAll() {
 
   stopCombat()
-
 
   followingOwner = false
   grinding = false
@@ -1522,4 +1500,13 @@ function findNearestPlayer(
   }
 
 
-  r
+  // YAHI TUMHARI FILE ME MISSING THA
+  return nearest
+}
+
+
+// ======================================================
+// START
+// ======================================================
+
+startBot()
