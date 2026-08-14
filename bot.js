@@ -1,23 +1,14 @@
 const mineflayer = require('mineflayer')
 
 /*
-====================================================
-STEALBOT - STRONG JUMP + WALK
-Minecraft 1.21.4
-====================================================
+========================================================
+STEALBOT - SIMPLE PLAYER STYLE
+Minecraft: 1.21.4
+Owner: NT_Gamer56
 
-Removed:
-- Mob killing
-- Bot chat replies
-- PvP/combat
-
-Added:
-- Register/Login
-- Automatic reconnect
-- Strong Walk + Jump
-- Random direction changes
-- Respawn movement restart
-====================================================
+ONLY REQUIRED PACKAGE:
+npm install mineflayer
+========================================================
 */
 
 const HOST = 'StealMCs2.aternos.me'
@@ -26,38 +17,27 @@ const VERSION = '1.21.4'
 
 const BOT_NAME = 'Stealbot'
 const PASSWORD = 'Stealbot123'
+const OWNER = 'NT_Gamer56'
 
 const RECONNECT_DELAY = 10000
-const LOGIN_DELAY = 3500
-const MOVEMENT_START_DELAY = 5500
-
-const WALK_DURATION = 6500
-const PAUSE_DURATION = 1000
-
-const JUMP_MIN = 1800
-const JUMP_MAX = 3200
-
-const TURN_MIN = 4500
-const TURN_MAX = 8500
 
 let bot = null
-
 let reconnectTimer = null
-let movementTimer = null
-let jumpTimer = null
-let turnTimer = null
-
-let jumpTimeout = null
-let sideTimeout = null
-
 let spawned = false
-let walking = false
-let reconnecting = false
+
+let currentTarget = null
+let combatTimer = null
+let wanderTimer = null
+let mineTimer = null
+
+let followingOwner = false
+let grinding = false
+let mining = false
 
 
-// ================================================
+// ======================================================
 // START BOT
-// ================================================
+// ======================================================
 
 function startBot() {
 
@@ -66,116 +46,138 @@ function startBot() {
     reconnectTimer = null
   }
 
-  stopMovement()
-
   console.log('================================')
-  console.log('Stealbot START')
-  console.log('Server:', HOST)
-  console.log('Port:', PORT)
-  console.log('Version:', VERSION)
+  console.log('STEALBOT START HO RAHA HAI')
+  console.log('SERVER:', HOST)
+  console.log('PORT:', PORT)
+  console.log('VERSION:', VERSION)
+  console.log('OWNER:', OWNER)
   console.log('================================')
 
+  try {
 
-  bot = mineflayer.createBot({
+    bot = mineflayer.createBot({
+      host: HOST,
+      port: PORT,
+      username: BOT_NAME,
+      version: VERSION,
+      auth: 'offline'
+    })
 
-    host: HOST,
-    port: PORT,
+  } catch (err) {
 
-    username: BOT_NAME,
-
-    version: VERSION,
-
-    auth: 'offline'
-
-  })
+    console.log('Bot create error:', err.message)
+    scheduleReconnect()
+    return
+  }
 
 
-  // ==============================================
+  // ====================================================
   // SPAWN
-  // ==============================================
+  // ====================================================
 
   bot.once('spawn', () => {
 
     spawned = true
-    reconnecting = false
 
     console.log(
       'Stealbot server me join ho gaya!'
     )
 
-
     // REGISTER
-
     setTimeout(() => {
 
-      if (!isReady()) return
+      if (!bot || !spawned) return
 
-      try {
-
-        bot.chat(
-          `/register ${PASSWORD} ${PASSWORD}`
-        )
-
-        console.log(
-          'Register command sent.'
-        )
-
-      } catch (err) {
-
-        console.log(
-          'Register error:',
-          err.message
-        )
-
-      }
+      bot.chat(
+        `/register ${PASSWORD} ${PASSWORD}`
+      )
 
     }, 1500)
 
 
     // LOGIN
-
     setTimeout(() => {
 
-      if (!isReady()) return
+      if (!bot || !spawned) return
 
-      try {
+      bot.chat(
+        `/login ${PASSWORD}`
+      )
 
-        bot.chat(
-          `/login ${PASSWORD}`
-        )
-
-        console.log(
-          'Login command sent.'
-        )
-
-      } catch (err) {
-
-        console.log(
-          'Login error:',
-          err.message
-        )
-
-      }
-
-    }, LOGIN_DELAY)
-
-
-    // START MOVEMENT
-
-    setTimeout(() => {
-
-      if (!isReady()) return
-
-      startMovement()
-
-    }, MOVEMENT_START_DELAY)
+    }, 3500)
 
   })
 
 
-  // ==============================================
+  // ====================================================
+  // CHAT
+  // ====================================================
+
+  bot.on('chat', (username, message) => {
+
+    if (!bot) return
+    if (username === bot.username) return
+
+    console.log(
+      `[CHAT] ${username}: ${message}`
+    )
+
+
+    // Owner ke commands
+    if (username === OWNER) {
+
+      ownerCommand(
+        String(message).trim()
+      )
+
+      return
+    }
+
+
+    // Normal players
+    normalChat(
+      username,
+      String(message)
+    )
+
+  })
+
+
+  // ====================================================
+  // BOT HIT
+  // ====================================================
+
+  bot.on('entityHurt', entity => {
+
+    if (!bot || !bot.entity) return
+
+    if (entity !== bot.entity) return
+
+    const attacker =
+      findNearestPlayer(8)
+
+    if (!attacker) return
+
+    const username =
+      attacker.username || 'player'
+
+    console.log(
+      `${username} ne Stealbot ko hit kiya!`
+    )
+
+    bot.chat(
+      `Oye ${username}, PvP aaja!`
+    )
+
+    startPvP(attacker)
+
+  })
+
+
+  // ====================================================
   // DEATH
-  // ==============================================
+  // ====================================================
 
   bot.on('death', () => {
 
@@ -183,18 +185,14 @@ function startBot() {
       'Stealbot mar gaya.'
     )
 
-    console.log(
-      'Respawn ka wait...'
-    )
-
-    stopMovement()
+    stopAll()
 
   })
 
 
-  // ==============================================
+  // ====================================================
   // RESPAWN
-  // ==============================================
+  // ====================================================
 
   bot.on('respawn', () => {
 
@@ -202,30 +200,17 @@ function startBot() {
       'Stealbot respawn ho gaya!'
     )
 
-
-    setTimeout(() => {
-
-      if (!isReady()) return
-
-      startMovement()
-
-    }, 2500)
-
   })
 
 
-  // ==============================================
+  // ====================================================
   // KICK
-  // ==============================================
+  // ====================================================
 
-  bot.on('kicked', (reason) => {
-
-    console.log(
-      '================================'
-    )
+  bot.on('kicked', reason => {
 
     console.log(
-      'BOT KICK HUA'
+      'BOT KICK HUA!'
     )
 
     console.log(
@@ -233,18 +218,14 @@ function startBot() {
       reason
     )
 
-    console.log(
-      '================================'
-    )
-
   })
 
 
-  // ==============================================
+  // ====================================================
   // ERROR
-  // ==============================================
+  // ====================================================
 
-  bot.on('error', (err) => {
+  bot.on('error', err => {
 
     console.log(
       'Mineflayer error:',
@@ -254,20 +235,15 @@ function startBot() {
   })
 
 
-  // ==============================================
+  // ====================================================
   // DISCONNECT
-  // ==============================================
+  // ====================================================
 
-  bot.on('end', (reason) => {
+  bot.on('end', reason => {
 
     spawned = false
 
-    stopMovement()
-
-
-    console.log(
-      '================================'
-    )
+    stopAll()
 
     console.log(
       'Bot disconnect ho gaya.'
@@ -279,13 +255,8 @@ function startBot() {
     )
 
     console.log(
-      'Reconnect schedule ho raha hai...'
+      '10 second baad reconnect hoga...'
     )
-
-    console.log(
-      '================================'
-    )
-
 
     scheduleReconnect()
 
@@ -294,145 +265,541 @@ function startBot() {
 }
 
 
-// ================================================
-// READY CHECK
-// ================================================
+// ======================================================
+// RECONNECT
+// ======================================================
 
-function isReady() {
+function scheduleReconnect() {
 
-  return !!(
+  if (reconnectTimer) return
 
-    bot &&
+  reconnectTimer =
+    setTimeout(() => {
 
-    bot.entity &&
+      reconnectTimer = null
 
-    spawned
+      startBot()
 
+    }, RECONNECT_DELAY)
+
+}
+
+
+// ======================================================
+// NORMAL CHAT
+// ======================================================
+
+function normalChat(
+  username,
+  message
+) {
+
+  const msg =
+    message
+      .toLowerCase()
+      .trim()
+
+
+  if (
+    msg === 'hi' ||
+    msg === 'hello' ||
+    msg === 'hey' ||
+    msg === 'hii'
+  ) {
+
+    bot.chat(
+      `Hello ${username}!`
+    )
+
+    return
+  }
+
+
+  if (
+    msg.includes('kaun ho') ||
+    msg.includes('kon ho') ||
+    msg.includes('who are you')
+  ) {
+
+    bot.chat(
+      'Main Stealbot hoon!'
+    )
+
+    return
+  }
+
+
+  if (
+    msg.includes('naam kya') ||
+    msg.includes('your name')
+  ) {
+
+    bot.chat(
+      'Mera naam Stealbot hai!'
+    )
+
+    return
+  }
+
+
+  if (
+    msg === 'help' ||
+    msg === 'bot help'
+  ) {
+
+    bot.chat(
+      'Mere owner NT_Gamer56 hain.'
+    )
+
+  }
+
+}
+
+
+// ======================================================
+// OWNER COMMANDS
+// ======================================================
+
+function ownerCommand(raw) {
+
+  const msg =
+    raw
+      .toLowerCase()
+      .trim()
+
+
+  // ====================================================
+  // STOP
+  // ====================================================
+
+  if (
+    msg === 'stop' ||
+    msg === 'ruk' ||
+    msg === 'ruko' ||
+    msg === 'pvp stop' ||
+    msg === 'stop pvp'
+  ) {
+
+    stopAll()
+
+    bot.chat(
+      'Theek hai NT_Gamer56, sab kaam rok diya.'
+    )
+
+    return
+  }
+
+
+  // ====================================================
+  // IDHAR AA
+  // ====================================================
+
+  if (
+    msg.includes('idhar aa') ||
+    msg.includes('idhar a') ||
+    msg.includes('mere paas aa') ||
+    msg.includes('mere pas aa') ||
+    msg === 'come'
+  ) {
+
+    goToOwner()
+
+    return
+  }
+
+
+  // ====================================================
+  // FOLLOW
+  // ====================================================
+
+  if (
+    msg.includes('mere peeche aa') ||
+    msg.includes('mere piche aa') ||
+    msg === 'follow'
+  ) {
+
+    followOwner()
+
+    return
+  }
+
+
+  // ====================================================
+  // JUMP
+  // ====================================================
+
+  if (
+    msg === 'jump' ||
+    msg.includes('jump kar') ||
+    msg.includes('kood')
+  ) {
+
+    jump()
+
+    bot.chat(
+      'Haan NT_Gamer56, jump kar raha hoon!'
+    )
+
+    return
+  }
+
+
+  // ====================================================
+  // WALK
+  // ====================================================
+
+  if (
+    msg.includes('walk kar') ||
+    msg.includes('walk karo') ||
+    msg.includes('chal') ||
+    msg.includes('ghoom') ||
+    msg.includes('wander')
+  ) {
+
+    startWalk()
+
+    bot.chat(
+      'Theek hai NT_Gamer56, walk kar raha hoon.'
+    )
+
+    return
+  }
+
+
+  // ====================================================
+  // PVP
+  // ====================================================
+
+  if (
+    msg.includes('pvp') ||
+    msg.includes('fight') ||
+    msg.includes('lad')
+  ) {
+
+    const target =
+      findNearestPlayer(16)
+
+    if (!target) {
+
+      bot.chat(
+        'NT_Gamer56, aas-paas PvP target nahi mila.'
+      )
+
+      return
+    }
+
+    bot.chat(
+      'Aaja! Crazy PvP start!'
+    )
+
+    startPvP(target)
+
+    return
+  }
+
+
+  // ====================================================
+  // BLOCK TOD
+  // ====================================================
+
+  if (
+    msg.includes('block tod') ||
+    msg.includes('block todna') ||
+    msg.includes('mine kar') ||
+    msg.includes('mining kar')
+  ) {
+
+    startMining()
+
+    return
+  }
+
+
+  // ====================================================
+  // GRIND
+  // ====================================================
+
+  if (
+    msg.includes('grind kar') ||
+    msg.includes('grinding kar') ||
+    msg.includes('grind karo')
+  ) {
+
+    startGrind()
+
+    return
+  }
+
+
+  // ====================================================
+  // COMMAND
+  // ====================================================
+
+  if (
+    msg.startsWith('command ') ||
+    msg.startsWith('cmd ') ||
+    msg.startsWith('/')
+  ) {
+
+    let command = raw
+
+    if (
+      command
+        .toLowerCase()
+        .startsWith('command ')
+    ) {
+
+      command =
+        command.substring(8)
+
+    }
+
+    if (
+      command
+        .toLowerCase()
+        .startsWith('cmd ')
+    ) {
+
+      command =
+        command.substring(4)
+
+    }
+
+    command =
+      command.trim()
+
+
+    if (
+      !command.startsWith('/')
+    ) {
+
+      command =
+        '/' + command
+
+    }
+
+
+    bot.chat(command)
+
+    return
+  }
+
+
+  // ====================================================
+  // BOT STATUS
+  // ====================================================
+
+  if (
+    msg.includes('kya kar rahe') ||
+    msg.includes('kya kr rahe')
+  ) {
+
+    bot.chat(
+      'NT_Gamer56, jo aap bolenge wahi kaam karunga.'
+    )
+
+    return
+  }
+
+
+  // ====================================================
+  // SIMPLE UNDERSTANDING
+  // ====================================================
+
+  if (
+    msg.includes('mere paas') ||
+    msg.includes('mere pas')
+  ) {
+
+    goToOwner()
+
+    return
+  }
+
+
+  bot.chat(
+    `Samajh gaya NT_Gamer56: ${raw}`
   )
 
 }
 
 
-// ================================================
-// RECONNECT
-// ================================================
+// ======================================================
+// GO TO OWNER
+// ======================================================
 
-function scheduleReconnect() {
+function goToOwner() {
 
-  if (
-    reconnectTimer ||
-    reconnecting
-  ) {
+  followingOwner = false
+
+  stopCombat()
+
+
+  const owner =
+    getPlayer(OWNER)
+
+
+  if (!owner) {
+
+    bot.chat(
+      'NT_Gamer56 abhi mujhe dikh nahi rahe.'
+    )
 
     return
+  }
+
+
+  bot.chat(
+    'Aa raha hoon NT_Gamer56!'
+  )
+
+
+  moveToPosition(
+    owner.position
+  )
+
+}
+
+
+// ======================================================
+// FOLLOW OWNER
+// ======================================================
+
+function followOwner() {
+
+  stopCombat()
+
+  followingOwner = true
+
+  bot.chat(
+    'Theek hai, NT_Gamer56 ke peeche aa raha hoon.'
+  )
+
+
+  if (wanderTimer) {
+
+    clearInterval(
+      wanderTimer
+    )
+
+    wanderTimer = null
 
   }
 
 
-  reconnecting = true
+  // Pathfinder ke bina simple follow system.
+  wanderTimer =
+    setInterval(() => {
+
+      if (
+        !bot ||
+        !spawned ||
+        !followingOwner
+      )
+        return
 
 
-  reconnectTimer = setTimeout(() => {
+      const owner =
+        getPlayer(OWNER)
 
-    reconnectTimer = null
 
-    reconnecting = false
+      if (!owner)
+        return
 
-    startBot()
 
-  }, RECONNECT_DELAY)
+      const distance =
+        bot.entity.position.distanceTo(
+          owner.position
+        )
+
+
+      if (distance > 3) {
+
+        moveToPosition(
+          owner.position
+        )
+
+      } else {
+
+        stopMovement()
+
+      }
+
+
+      // Kabhi-kabhi natural jump.
+      if (
+        distance > 5 &&
+        Math.random() < 0.15
+      ) {
+
+        jump()
+
+      }
+
+    }, 500)
 
 }
 
 
-// ================================================
-// STRONG MOVEMENT SYSTEM
-// ================================================
+// ======================================================
+// MOVE TO POSITION
+// ======================================================
 
-function startMovement() {
+function moveToPosition(position) {
 
-  stopMovement()
-
-
-  if (!isReady()) return
-
-
-  walking = true
-
-
-  console.log(
-    '================================'
+  if (
+    !bot ||
+    !bot.entity
   )
-
-  console.log(
-    'JUMP + WALK SYSTEM ON'
-  )
-
-  console.log(
-    '================================'
-  )
+    return
 
 
-  // ----------------------------------------------
-  // MAIN WALK CYCLE
-  // ----------------------------------------------
-
-  movementTimer = setInterval(() => {
-
-    if (!isReady()) return
+  const botPos =
+    bot.entity.position
 
 
-    if (walking) {
-
-      stopSideMovement()
-
-
-      bot.setControlState(
-        'forward',
-        true
-      )
+  const dx =
+    position.x -
+    botPos.x
 
 
-      bot.setControlState(
-        'sprint',
-        false
-      )
+  const dz =
+    position.z -
+    botPos.z
 
 
-      setTimeout(() => {
-
-        if (!isReady()) return
-
-
-        bot.setControlState(
-          'forward',
-          false
-        )
+  const distance =
+    Math.sqrt(
+      dx * dx +
+      dz * dz
+    )
 
 
-        walking = false
+  if (distance < 1.5) {
 
-      }, WALK_DURATION)
+    stopMovement()
 
-
-    } else {
-
-      bot.setControlState(
-        'forward',
-        true
-      )
+    return
+  }
 
 
-      walking = true
+  const yaw =
+    Math.atan2(
+      -dx,
+      -dz
+    )
 
-    }
 
-  }, WALK_DURATION + PAUSE_DURATION)
+  try {
 
+    bot.look(
+      yaw,
+      0,
+      true
+    )
 
-  // ----------------------------------------------
-  // START WALKING IMMEDIATELY
-  // ----------------------------------------------
+  } catch (err) {}
+
 
   bot.setControlState(
     'forward',
@@ -442,394 +809,717 @@ function startMovement() {
 
   bot.setControlState(
     'sprint',
-    false
+    distance > 5
   )
 
 
-  // ----------------------------------------------
-  // START JUMP SYSTEM
-  // ----------------------------------------------
-
-  scheduleJump()
-
-
-  // ----------------------------------------------
-  // START TURN SYSTEM
-  // ----------------------------------------------
-
-  scheduleTurn()
-
-}
-
-
-// ================================================
-// RANDOM JUMP
-// ================================================
-
-function scheduleJump() {
-
-  if (!isReady()) return
-
-
-  const delay =
-
-    JUMP_MIN +
-
-    Math.floor(
-
-      Math.random() *
-
-      (
-        JUMP_MAX -
-        JUMP_MIN
-      )
-
-    )
-
-
-  jumpTimer = setTimeout(() => {
-
-    if (!isReady()) return
-
-
-    try {
-
-      bot.setControlState(
-        'jump',
-        true
-      )
-
-
-      jumpTimeout = setTimeout(() => {
-
-        if (!bot) return
-
-
-        try {
-
-          bot.setControlState(
-            'jump',
-            false
-          )
-
-        } catch (err) {}
-
-      }, 300)
-
-
-    } catch (err) {}
-
-
-    scheduleJump()
-
-
-  }, delay)
-
-}
-
-
-// ================================================
-// RANDOM TURN
-// ================================================
-
-function scheduleTurn() {
-
-  if (!isReady()) return
-
-
-  const delay =
-
-    TURN_MIN +
-
-    Math.floor(
-
-      Math.random() *
-
-      (
-        TURN_MAX -
-        TURN_MIN
-      )
-
-    )
-
-
-  turnTimer = setTimeout(() => {
-
-    if (!isReady()) return
-
-
-    randomTurn()
-
-
-    scheduleTurn()
-
-
-  }, delay)
-
-}
-
-
-// ================================================
-// CHANGE DIRECTION
-// ================================================
-
-function randomTurn() {
-
-  if (!isReady()) return
-
-
-  const amount =
-
-    (
-      Math.random() * 1.8
-    ) -
-
-    0.9
-
-
-  try {
-
-    bot.look(
-
-      bot.entity.yaw +
-      amount,
-
-      0,
-
-      true
-
-    )
-
-  } catch (err) {}
-
-
-  // Random side movement
-
-  const side =
-
-    Math.random() < 0.5
-
-      ? 'left'
-
-      : 'right'
-
-
-  try {
+  // Agar target thoda upar hai,
+  // jump karne ki koshish.
+  if (
+    position.y >
+    botPos.y + 0.7
+  ) {
 
     bot.setControlState(
-      side,
+      'jump',
       true
     )
 
-
-    sideTimeout = setTimeout(() => {
-
-      if (!bot) return
-
-
-      try {
-
-        bot.setControlState(
-          side,
-          false
-        )
-
-      } catch (err) {}
-
-    }, 350)
-
-
-  } catch (err) {}
-
-}
-
-
-// ================================================
-// STOP SIDE MOVEMENT
-// ================================================
-
-function stopSideMovement() {
-
-  if (!bot) return
-
-
-  try {
-
-    bot.setControlState(
-      'left',
-      false
-    )
-
-
-    bot.setControlState(
-      'right',
-      false
-    )
-
-  } catch (err) {}
-
-}
-
-
-// ================================================
-// STOP MOVEMENT
-// ================================================
-
-function stopMovement() {
-
-  if (movementTimer) {
-
-    clearInterval(
-      movementTimer
-    )
-
-    movementTimer = null
-
-  }
-
-
-  if (jumpTimer) {
-
-    clearTimeout(
-      jumpTimer
-    )
-
-    jumpTimer = null
-
-  }
-
-
-  if (turnTimer) {
-
-    clearTimeout(
-      turnTimer
-    )
-
-    turnTimer = null
-
-  }
-
-
-  if (jumpTimeout) {
-
-    clearTimeout(
-      jumpTimeout
-    )
-
-    jumpTimeout = null
-
-  }
-
-
-  if (sideTimeout) {
-
-    clearTimeout(
-      sideTimeout
-    )
-
-    sideTimeout = null
-
-  }
-
-
-  walking = false
-
-
-  if (!bot) return
-
-
-  try {
-
-    bot.setControlState(
-      'forward',
-      false
-    )
-
-
-    bot.setControlState(
-      'back',
-      false
-    )
-
-
-    bot.setControlState(
-      'left',
-      false
-    )
-
-
-    bot.setControlState(
-      'right',
-      false
-    )
-
+  } else {
 
     bot.setControlState(
       'jump',
       false
     )
 
+  }
 
-    bot.setControlState(
+}
+
+
+// ======================================================
+// JUMP
+// ======================================================
+
+function jump() {
+
+  if (!bot)
+    return
+
+
+  bot.setControlState(
+    'jump',
+    true
+  )
+
+
+  setTimeout(() => {
+
+    if (bot) {
+
+      bot.setControlState(
+        'jump',
+        false
+      )
+
+    }
+
+  }, 400)
+
+}
+
+
+// ======================================================
+// WALK
+// ======================================================
+
+function startWalk() {
+
+  followingOwner = false
+
+  stopCombat()
+
+
+  if (wanderTimer) {
+
+    clearInterval(
+      wanderTimer
+    )
+
+  }
+
+
+  function randomWalk() {
+
+    if (
+      !bot ||
+      !spawned
+    )
+      return
+
+
+    const yaw =
+      Math.random() *
+      Math.PI *
+      2
+
+
+    const distance =
+      5 +
+      Math.random() * 8
+
+
+    const pos =
+      bot.entity.position
+
+
+    const dx =
+      Math.cos(yaw) *
+      distance
+
+
+    const dz =
+      Math.sin(yaw) *
+      distance
+
+
+    const target = {
+      x: pos.x + dx,
+      y: pos.y,
+      z: pos.z + dz
+    }
+
+
+    moveToPosition(
+      target
+    )
+
+
+    if (
+      Math.random() < 0.25
+    ) {
+
+      jump()
+
+    }
+
+  }
+
+
+  randomWalk()
+
+
+  wanderTimer =
+    setInterval(
+      randomWalk,
+      6000
+    )
+
+}
+
+
+// ======================================================
+// MINING
+// ======================================================
+
+async function startMining() {
+
+  if (
+    !bot ||
+    !bot.entity ||
+    mining
+  )
+    return
+
+
+  mining = true
+
+  followingOwner = false
+
+  stopCombat()
+
+
+  const block =
+    bot.findBlock({
+
+      matching: block => {
+
+        if (!block)
+          return false
+
+        if (
+          block.name === 'air'
+        )
+          return false
+
+        if (
+          block.name === 'water'
+        )
+          return false
+
+        if (
+          block.name === 'lava'
+        )
+          return false
+
+        return true
+
+      },
+
+      maxDistance: 5
+
+    })
+
+
+  if (!block) {
+
+    bot.chat(
+      'NT_Gamer56, paas mein block nahi mila.'
+    )
+
+    mining = false
+
+    return
+  }
+
+
+  try {
+
+    await bot.lookAt(
+      block.position.offset(
+        0.5,
+        0.5,
+        0.5
+      ),
+      true
+    )
+
+
+    await bot.dig(
+      block
+    )
+
+
+    bot.chat(
+      'Block tod diya NT_Gamer56.'
+    )
+
+  } catch (err) {
+
+    console.log(
+      'Mining error:',
+      err.message
+    )
+
+  }
+
+
+  mining = false
+
+}
+
+
+// ======================================================
+// GRIND
+// ======================================================
+
+function startGrind() {
+
+  grinding = true
+
+  startWalk()
+
+
+  bot.chat(
+    'Grind mode chalu kar diya.'
+  )
+
+
+  if (mineTimer) {
+
+    clearInterval(
+      mineTimer
+    )
+
+  }
+
+
+  mineTimer =
+    setInterval(() => {
+
+      if (
+        !bot ||
+        !spawned ||
+        !grinding
+      )
+        return
+
+
+      if (
+        currentTarget
+      )
+        return
+
+
+      if (
+        !mining
+      ) {
+
+        startMining()
+
+      }
+
+    }, 10000)
+
+}
+
+
+// ======================================================
+// PVP
+// ======================================================
+
+function startPvP(target) {
+
+  if (
+    !bot ||
+    !bot.entity ||
+    !target
+  )
+    return
+
+
+  stopCombat()
+
+
+  followingOwner = false
+
+  currentTarget =
+    target
+
+
+  function fight() {
+
+    if (
+      !bot ||
+      !bot.entity ||
+      !currentTarget
+    )
+      return
+
+
+    if (
+      currentTarget.isValid === false
+    ) {
+
+      stopCombat()
+
+      return
+    }
+
+
+    const targetPos =
+      currentTarget.position
+
+
+    const botPos =
+      bot.entity.position
+
+
+    const dx =
+      targetPos.x -
+      botPos.x
+
+
+    const dz =
+      targetPos.z -
+      botPos.z
+
+
+    const distance =
+      bot.entity.position.distanceTo(
+        targetPos
+      )
+
+
+    const yaw =
+      Math.atan2(
+        -dx,
+        -dz
+      )
+
+
+    try {
+
+      bot.look(
+        yaw,
+        0,
+        true
+      )
+
+    } catch (err) {}
+
+
+    if (
+      distance > 3.2
+    ) {
+
+      bot.setControlState(
+        'forward',
+        true
+      )
+
+      bot.setControlState(
+        'sprint',
+        distance > 4
+      )
+
+
+      if (
+        targetPos.y >
+        botPos.y + 0.6
+      ) {
+
+        bot.setControlState(
+          'jump',
+          true
+        )
+
+      } else {
+
+        bot.setControlState(
+          'jump',
+          false
+        )
+
+      }
+
+    } else {
+
+      bot.setControlState(
+        'forward',
+        false
+      )
+
+      bot.setControlState(
+        'sprint',
+        false
+      )
+
+
+      // PvP movement variation.
+      if (
+        Math.random() < 0.12
+      ) {
+
+        bot.setControlState(
+          'left',
+          true
+        )
+
+        setTimeout(() => {
+
+          if (bot) {
+
+            bot.setControlState(
+              'left',
+              false
+            )
+
+          }
+
+        }, 250)
+
+      }
+
+
+      if (
+        Math.random() < 0.15
+      ) {
+
+        jump()
+
+      }
+
+
+      try {
+
+        bot.attack(
+          currentTarget
+        )
+
+      } catch (err) {}
+
+    }
+
+  }
+
+
+  fight()
+
+
+  combatTimer =
+    setInterval(
+      fight,
+      350
+    )
+
+
+  // Maximum 30 seconds.
+  setTimeout(() => {
+
+    if (currentTarget === target) {
+
+      stopCombat()
+
+    }
+
+  }, 30000)
+
+}
+
+
+// ======================================================
+// STOP COMBAT
+// ======================================================
+
+function stopCombat() {
+
+  if (combatTimer) {
+
+    clearInterval(
+      combatTimer
+    )
+
+    combatTimer = null
+
+  }
+
+
+  currentTarget = null
+
+  stopMovement()
+
+}
+
+
+// ======================================================
+// STOP ALL
+// ======================================================
+
+function stopAll() {
+
+  stopCombat()
+
+
+  followingOwner = false
+  grinding = false
+  mining = false
+
+
+  if (wanderTimer) {
+
+    clearInterval(
+      wanderTimer
+    )
+
+    wanderTimer = null
+
+  }
+
+
+  if (mineTimer) {
+
+    clearInterval(
+      mineTimer
+    )
+
+    mineTimer = null
+
+  }
+
+
+  stopMovement()
+
+}
+
+
+// ======================================================
+// STOP MOVEMENT
+// ======================================================
+
+function stopMovement() {
+
+  if (!bot)
+    return
+
+
+  try {
+
+    const states = [
+      'forward',
+      'back',
+      'left',
+      'right',
+      'jump',
       'sprint',
-      false
-    )
+      'sneak'
+    ]
 
 
-    bot.setControlState(
-      'sneak',
-      false
-    )
+    for (
+      const state of states
+    ) {
+
+      bot.setControlState(
+        state,
+        false
+      )
+
+    }
 
   } catch (err) {}
 
 }
 
 
-// ================================================
-// ERROR PROTECTION
-// ================================================
+// ======================================================
+// GET PLAYER
+// ======================================================
 
-process.on(
-  'uncaughtException',
-  (err) => {
+function getPlayer(username) {
 
-    console.log(
-      'Uncaught error:',
-      err.message
+  if (
+    !bot ||
+    !bot.players
+  )
+    return null
+
+
+  const player =
+    bot.players[
+      username
+    ]
+
+
+  if (!player)
+    return null
+
+
+  if (!player.entity)
+    return null
+
+
+  return player.entity
+
+}
+
+
+// ======================================================
+// FIND NEAREST PLAYER
+// ======================================================
+
+function findNearestPlayer(
+  maxDistance
+) {
+
+  if (
+    !bot ||
+    !bot.entity ||
+    !bot.players
+  )
+    return null
+
+
+  let nearest = null
+
+  let nearestDistance =
+    maxDistance
+
+
+  for (
+    const username in bot.players
+  ) {
+
+    if (
+      username === bot.username
     )
+      continue
 
 
-    if (!reconnectTimer) {
+    const player =
+      bot.players[
+        username
+      ]
 
-      spawned = false
 
-      stopMovement()
+    if (!player)
+      continue
 
-      scheduleReconnect()
+
+    if (!player.entity)
+      continue
+
+
+    const distance =
+      bot.entity.position.distanceTo(
+        player.entity.position
+      )
+
+
+    if (
+      distance <
+      nearestDistance
+    ) {
+
+      nearestDistance =
+        distance
+
+      nearest =
+        player.entity
 
     }
 
   }
-)
 
 
-process.on(
-  'unhandledRejection',
-  (err) => {
-
-    console.log(
-      'Unhandled rejection:',
-      err
-
-    )
-
-  }
-)
-
-
-// ================================================
-// START
-// ================================================
-
-startBot()
+  r
